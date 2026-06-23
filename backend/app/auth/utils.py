@@ -4,72 +4,65 @@ refresh-token management, brute-force protection, and the FastAPI dependency
 that resolves the current authenticated user.
 """
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from typing import Any
 
+import bcrypt as _bcrypt
 import jwt as pyjwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 
-# rounds=12 is the OWASP-recommended minimum for bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+# Passlib removed: passlib 1.7.4 is incompatible with bcrypt >= 4.0.
+# bcrypt is now called directly so we own every call site.
+_BCRYPT_ROUNDS = 12
+_BCRYPT_MAX_BYTES = 72
+
 bearer_scheme = HTTPBearer(auto_error=False)
 
-# Constant-time dummy hash used to prevent user-enumeration via timing attacks
-_DUMMY_HASH: str | None = None
 
-
-def _get_dummy_hash() -> str:
-    global _DUMMY_HASH
-    if _DUMMY_HASH is None:
-        _DUMMY_HASH = pwd_context.hash("timing-attack-prevention-dummy")
-    return _DUMMY_HASH
+@lru_cache(maxsize=1)
+def _dummy_hash() -> bytes:
+    """Precompute once; used by constant_time_password_check for non-existent users."""
+    return _bcrypt.hashpw(b"dummy-for-timing-safety", _bcrypt.gensalt(rounds=_BCRYPT_ROUNDS))
 
 
 # ── Passwords ────────────────────────────────────────────────────────────────
 
-_BCRYPT_MAX_BYTES = 72
-
-
-def _check_password_bytes(password: str) -> None:
-    """Raise early if the UTF-8 encoding exceeds bcrypt's 72-byte hard limit.
-
-    Pydantic's max_length counts Unicode code-points, not bytes, so multi-byte
-    characters (e.g. emoji, CJK) can slip through the schema check.  This guard
-    ensures bcrypt never receives an oversized input regardless of call site —
-    preventing both the ValueError from bcrypt >= 4.0 and the silent truncation
-    bug in older bcrypt that made two different long passwords compare equal.
-    """
-    if len(password.encode("utf-8")) > _BCRYPT_MAX_BYTES:
+def _encode_password(password: str) -> bytes:
+    """Encode to UTF-8 and enforce bcrypt's hard 72-byte limit before it ever reaches the C library."""
+    encoded = password.encode("utf-8")
+    if len(encoded) > _BCRYPT_MAX_BYTES:
         raise ValueError(
-            f"Password must be at most {_BCRYPT_MAX_BYTES} bytes when encoded as UTF-8"
+            f"Password must be at most {_BCRYPT_MAX_BYTES} bytes when UTF-8 encoded"
         )
+    return encoded
 
 
 def hash_password(password: str) -> str:
-    _check_password_bytes(password)
-    return pwd_context.hash(password)
+    return _bcrypt.hashpw(
+        _encode_password(password),
+        _bcrypt.gensalt(rounds=_BCRYPT_ROUNDS),
+    ).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    _check_password_bytes(plain)
-    return pwd_context.verify(plain, hashed)
+    return _bcrypt.checkpw(_encode_password(plain), hashed.encode("utf-8"))
 
 
 def constant_time_password_check(plain: str, hashed: str | None) -> bool:
     """Always runs bcrypt to prevent timing-based user enumeration."""
     try:
-        _check_password_bytes(plain)
+        encoded = _encode_password(plain)
     except ValueError:
-        # Still run a dummy verify so response time doesn't reveal the error.
-        pwd_context.verify("dummy", _get_dummy_hash())
+        # Password too long — still run a dummy check to keep response time constant.
+        _bcrypt.checkpw(b"dummy", _dummy_hash())
         return False
-    effective_hash = hashed if hashed else _get_dummy_hash()
-    result = pwd_context.verify(plain, effective_hash)
+    effective_hash = hashed.encode("utf-8") if hashed else _dummy_hash()
+    result = _bcrypt.checkpw(encoded, effective_hash)
     return result and hashed is not None
 
 

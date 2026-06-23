@@ -2,7 +2,7 @@ fastapi==0.115.5
 uvicorn[standard]==0.32.1
 # Replaces python-jose (CVE-2024-33663, CVE-2024-33664 — algorithm confusion attacks)
 PyJWT[crypto]==2.9.0
-passlib[bcrypt]==1.7.4
+bcrypt==4.2.1
 # 0.0.9 had DoS via malformed Content-Type; 0.0.18 is the patched baseline
 python-multipart==0.0.20
 sqlalchemy==2.0.36
