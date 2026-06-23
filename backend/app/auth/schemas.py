@@ -14,7 +14,9 @@ def _no_html(v: str) -> str:
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    # 72 chars = bcrypt's hard byte limit; Pydantic counts chars not bytes, so
+    # multi-byte Unicode could still exceed 72 bytes — hash_password() checks bytes.
+    password: str = Field(min_length=8, max_length=72)
     full_name: str = Field(min_length=1, max_length=255)
 
     @field_validator("full_name")
@@ -36,7 +38,7 @@ class RegisterRequest(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=1, max_length=72)
 
 
 class UserOut(BaseModel):

@@ -32,16 +32,42 @@ def _get_dummy_hash() -> str:
 
 # ── Passwords ────────────────────────────────────────────────────────────────
 
+_BCRYPT_MAX_BYTES = 72
+
+
+def _check_password_bytes(password: str) -> None:
+    """Raise early if the UTF-8 encoding exceeds bcrypt's 72-byte hard limit.
+
+    Pydantic's max_length counts Unicode code-points, not bytes, so multi-byte
+    characters (e.g. emoji, CJK) can slip through the schema check.  This guard
+    ensures bcrypt never receives an oversized input regardless of call site —
+    preventing both the ValueError from bcrypt >= 4.0 and the silent truncation
+    bug in older bcrypt that made two different long passwords compare equal.
+    """
+    if len(password.encode("utf-8")) > _BCRYPT_MAX_BYTES:
+        raise ValueError(
+            f"Password must be at most {_BCRYPT_MAX_BYTES} bytes when encoded as UTF-8"
+        )
+
+
 def hash_password(password: str) -> str:
+    _check_password_bytes(password)
     return pwd_context.hash(password)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
+    _check_password_bytes(plain)
     return pwd_context.verify(plain, hashed)
 
 
 def constant_time_password_check(plain: str, hashed: str | None) -> bool:
     """Always runs bcrypt to prevent timing-based user enumeration."""
+    try:
+        _check_password_bytes(plain)
+    except ValueError:
+        # Still run a dummy verify so response time doesn't reveal the error.
+        pwd_context.verify("dummy", _get_dummy_hash())
+        return False
     effective_hash = hashed if hashed else _get_dummy_hash()
     result = pwd_context.verify(plain, effective_hash)
     return result and hashed is not None
