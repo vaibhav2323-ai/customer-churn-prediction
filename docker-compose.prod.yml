@@ -1,0 +1,51 @@
+##
+## Production override — layer on top of docker-compose.yml:
+##   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+##
+## Prerequisites:
+##   1. SSL certificates at ./ssl/cert.pem and ./ssl/key.pem
+##      (generate with Certbot: certbot certonly --standalone -d yourdomain.com)
+##   2. All required env vars set in .env
+##
+
+version: '3.9'
+
+services:
+  backend:
+    environment:
+      - ENVIRONMENT=production
+      - COOKIE_SECURE=true
+      - COOKIE_SAMESITE=strict
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          memory: 512M
+
+  frontend:
+    build:
+      args:
+        VITE_API_URL: ""    # Keep empty — nginx proxies to backend
+    volumes:
+      # Mount SSL certificates (read-only)
+      - ./ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:8080"           # HTTP — nginx redirects to HTTPS
+      - "443:8443"          # HTTPS
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+
+  # ── Optional: automatic Let's Encrypt renewal ────────────────────────────────
+  # certbot:
+  #   image: certbot/certbot
+  #   volumes:
+  #     - ./ssl:/etc/letsencrypt
+  #     - ./certbot-webroot:/var/www/certbot
+  #   entrypoint: >
+  #     /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot;
+  #     sleep 12h & wait $${!}; done;"
