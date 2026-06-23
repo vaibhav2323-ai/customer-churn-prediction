@@ -1,6 +1,6 @@
 # Customer Churn Prediction
 
-A full-stack ML web app I built as my final year engineering project. You give it a telecom customer's details and it tells you how likely they are to cancel their subscription, plus *why* (using SHAP values).
+A full-stack ML web app I built to learn full-stack ML deployment. You give it a telecom customer's details and it tells you how likely they are to cancel their subscription, plus *why* (using SHAP values).
 
 **Live demo:** https://customer-churn-prediction-dun.vercel.app  
 Login: `demo@churnprediction.ai` / `Demo1234!`
