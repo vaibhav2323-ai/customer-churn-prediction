@@ -52,7 +52,7 @@ jobs:
         run: bandit -r backend/ -ll --exit-zero
 
       - name: pip-audit — dependency vulnerability check
-        run: pip-audit -r backend/requirements.txt --exit-zero
+        run: pip-audit -r backend/requirements.txt || true
 
 # ── 3. Frontend security scan ─────────────────────────────────────────────────
   security-frontend:
