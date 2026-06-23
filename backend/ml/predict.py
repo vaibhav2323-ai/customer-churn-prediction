@@ -58,7 +58,7 @@ def is_loaded() -> bool:
     return _model is not None
 
 
-def get_metrics() -> dict:
+def get_metrics():
     return _metadata.get("metrics", {})
 
 
@@ -157,7 +157,7 @@ def predict_single(data: dict) -> dict:
     }
 
 
-def predict_batch(records: list[dict]) -> list[dict]:
+def predict_batch(records: list[dict]):
     if not is_loaded():
         load_model()
 

@@ -18,7 +18,6 @@ DEMO_PASSWORD = "Demo1234!"
 DEMO_NAME = "Demo User"
 
 SAMPLE_CUSTOMERS = [
-    # High-risk profiles
     {"gender": "Male", "senior_citizen": 0, "partner": "No", "dependents": "No",
      "tenure": 3, "phone_service": "Yes", "multiple_lines": "No",
      "internet_service": "Fiber optic", "online_security": "No", "online_backup": "No",
@@ -33,7 +32,6 @@ SAMPLE_CUSTOMERS = [
      "streaming_movies": "No", "contract": "Month-to-month",
      "paperless_billing": "Yes", "payment_method": "Electronic check",
      "monthly_charges": 98.00, "total_charges": 588.0},
-    # Medium-risk profiles
     {"gender": "Male", "senior_citizen": 0, "partner": "Yes", "dependents": "No",
      "tenure": 18, "phone_service": "Yes", "multiple_lines": "No",
      "internet_service": "DSL", "online_security": "Yes", "online_backup": "No",
@@ -48,7 +46,6 @@ SAMPLE_CUSTOMERS = [
      "streaming_movies": "No", "contract": "One year",
      "paperless_billing": "Yes", "payment_method": "Credit card (automatic)",
      "monthly_charges": 60.15, "total_charges": 1443.6},
-    # Low-risk profiles
     {"gender": "Male", "senior_citizen": 0, "partner": "Yes", "dependents": "Yes",
      "tenure": 60, "phone_service": "Yes", "multiple_lines": "Yes",
      "internet_service": "DSL", "online_security": "Yes", "online_backup": "Yes",
@@ -123,7 +120,6 @@ def main():
     db = SessionLocal()
 
     try:
-        # Create demo user
         existing = db.query(User).filter(User.email == DEMO_EMAIL).first()
         if existing:
             user = existing
@@ -139,11 +135,9 @@ def main():
             db.refresh(user)
             print(f"Created demo user: {DEMO_EMAIL} / {DEMO_PASSWORD}")
 
-        # Delete existing seeded predictions for a clean slate
         db.query(Prediction).filter(Prediction.user_id == user.id).delete()
         db.commit()
 
-        # Seed structured sample predictions
         now = datetime.now(timezone.utc)
         count = 0
 

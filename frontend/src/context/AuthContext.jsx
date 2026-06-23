@@ -7,7 +7,6 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Restore session from localStorage on mount
   useEffect(() => {
     const token = localStorage.getItem('token')
     const stored = localStorage.getItem('user')
@@ -45,7 +44,6 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      // Tell the server to revoke the refresh token and clear the cookie
       await api.post('/auth/logout')
     } catch {
       // Ignore network errors — we still clear local state

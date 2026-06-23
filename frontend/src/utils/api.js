@@ -1,4 +1,3 @@
-// axios wrapper - handles auth token injection and silent refresh on 401
 import axios from 'axios'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''

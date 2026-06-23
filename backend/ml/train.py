@@ -25,7 +25,7 @@ MODELS_DIR = Path(__file__).parent / "models"
 MODELS_DIR.mkdir(exist_ok=True)
 
 
-def generate_synthetic_data(n_samples: int = 7043) -> pd.DataFrame:
+def generate_synthetic_data(n_samples: int = 7043):
     rng = np.random.default_rng(42)
 
     gender = rng.choice(["Male", "Female"], n_samples)
@@ -216,7 +216,6 @@ def train_models() -> None:
     X_train_sc = scaler.fit_transform(X_train)
     X_test_sc = scaler.transform(X_test)
 
-    # ---------- Logistic Regression ----------
     print("\nTraining Logistic Regression …")
     lr = LogisticRegression(max_iter=1000, random_state=42, C=0.5)
     lr.fit(X_train_sc, y_train)
@@ -226,7 +225,6 @@ def train_models() -> None:
     print(f"  ROC-AUC: {lr_auc:.4f}")
     print(classification_report(y_test, lr_pred, target_names=["No Churn", "Churn"]))
 
-    # ---------- XGBoost ----------
     print("Training XGBoost …")
     xgb_model = xgb.XGBClassifier(
         n_estimators=300,
@@ -250,7 +248,6 @@ def train_models() -> None:
     print(f"  ROC-AUC: {xgb_auc:.4f}")
     print(classification_report(y_test, xgb_pred, target_names=["No Churn", "Churn"]))
 
-    # ---------- Select winner ----------
     if xgb_auc >= lr_auc:
         print(f"\n✓ XGBoost selected (AUC {xgb_auc:.4f} ≥ {lr_auc:.4f})")
         best_model = xgb_model

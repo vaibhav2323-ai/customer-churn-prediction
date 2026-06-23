@@ -5,37 +5,29 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # ── Runtime environment ─────────────────────────────────────────────────
-    ENVIRONMENT: str = "development"  # Set to "production" in prod
+    ENVIRONMENT: str = "development"
 
-    # ── JWT ─────────────────────────────────────────────────────────────────
-    # These MUST be changed in production (generate with: openssl rand -hex 32)
+    # generate with: openssl rand -hex 32
     SECRET_KEY: str = "dev-only-do-NOT-use-in-production-change-me!!"
     REFRESH_SECRET_KEY: str = "dev-only-refresh-do-NOT-use-in-production!!!"
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15       # Short-lived access tokens
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7          # Longer-lived refresh tokens
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # ── Database ────────────────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite:///./churn.db"
 
-    # ── CORS — no wildcard allowed in production ────────────────────────────
-    # Vercel production URL is included as a default so the deployment works
-    # even if the CORS_ORIGINS env var is not explicitly set on Render.
-    # Override via env var to add/remove origins for your own deployment.
+    # Vercel URL included as default so deploy works even if env var isn't set on Render
     CORS_ORIGINS: str = (
         "http://localhost:3000,"
         "http://localhost:5173,"
         "https://customer-churn-prediction-dun.vercel.app"
     )
 
-    # ── Brute-force protection ──────────────────────────────────────────────
     LOGIN_MAX_ATTEMPTS: int = 5
     LOGIN_LOCKOUT_MINUTES: int = 15
 
-    # ── Cookie security ─────────────────────────────────────────────────────
-    COOKIE_SECURE: bool = False   # True in production (HTTPS only)
-    COOKIE_SAMESITE: str = "lax"  # "strict" is safer; "lax" allows top-level nav
+    COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: str = "lax"
 
     @field_validator("SECRET_KEY", "REFRESH_SECRET_KEY")
     @classmethod

@@ -145,7 +145,7 @@ async def batch_predict(
 
 @router.get("/history", response_model=dict)
 @limiter.limit("60/minute")
-def prediction_history(
+def prediction_history(  # TODO: add sorting options (by date, risk, prob)
     request: Request,
     page: int = Query(1, ge=1, le=10000),
     page_size: int = Query(20, ge=1, le=100),

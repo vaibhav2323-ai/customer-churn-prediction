@@ -37,7 +37,7 @@ def dashboard_stats(
     churned_count = base_q.filter(Prediction.churn_prediction == 1).count()
     churn_rate = round(churned_count / total_predictions, 4) if total_predictions else 0.0
 
-    # Monthly trend – last 6 months
+    # TODO: maybe cache this later, runs on every dashboard load
     six_months_ago = datetime.now(timezone.utc) - timedelta(days=180)
     recent = (
         base_q.filter(Prediction.created_at >= six_months_ago)

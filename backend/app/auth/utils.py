@@ -155,7 +155,7 @@ def revoke_all_user_refresh_tokens(user_id: int, db: Session) -> None:
     db.commit()
 
 
-def check_account_lockout(user) -> None:
+def check_account_lockout(user):
     if user.locked_until and user.locked_until > datetime.now(timezone.utc):
         remaining = max(1, int((user.locked_until - datetime.now(timezone.utc)).total_seconds() // 60))
         raise HTTPException(
@@ -164,7 +164,7 @@ def check_account_lockout(user) -> None:
         )
 
 
-def record_failed_login(user, db: Session) -> None:
+def record_failed_login(user, db: Session):
     user.failed_login_attempts += 1
     if user.failed_login_attempts >= settings.LOGIN_MAX_ATTEMPTS:
         user.locked_until = datetime.now(timezone.utc) + timedelta(
@@ -174,7 +174,7 @@ def record_failed_login(user, db: Session) -> None:
     db.commit()
 
 
-def record_successful_login(user, db: Session, ip: str) -> None:
+def record_successful_login(user, db: Session, ip: str):
     user.failed_login_attempts = 0
     user.locked_until = None
     user.last_login_at = datetime.now(timezone.utc)
