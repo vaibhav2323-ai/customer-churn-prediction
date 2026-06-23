@@ -122,32 +122,6 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# ── Security headers middleware ───────────────────────────────────────────────
-@app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
-
-    # Prevent MIME-type sniffing
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    # Block clickjacking
-    response.headers["X-Frame-Options"] = "DENY"
-    # Legacy XSS filter (belt-and-suspenders)
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    # Limit referrer info
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    # Restrict browser features
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(), payment=()"
-    # Remove server fingerprint header added by uvicorn
-    response.headers.pop("server", None)
-
-    # HSTS — only meaningful over HTTPS; safe to send always so it's effective
-    # the moment the site moves to HTTPS
-    response.headers["Strict-Transport-Security"] = (
-        "max-age=31536000; includeSubDomains; preload"
-    )
-
-    return response
-
 
 # ── Production error handler — no stack traces to clients ────────────────────
 @app.exception_handler(Exception)
