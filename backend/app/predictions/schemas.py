@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator
 
 
 def _safe_id(v: str | None) -> str | None:
-    """Allow only alphanumeric, hyphens, and underscores in customer IDs."""
     if v is None:
         return v
     if not re.match(r'^[A-Za-z0-9\-_]{1,64}$', v):

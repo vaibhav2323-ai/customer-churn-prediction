@@ -1,10 +1,4 @@
-/**
- * Axios instance with:
- *  - withCredentials: true → httpOnly refresh-token cookie is sent automatically
- *  - Request interceptor → injects short-lived access token from localStorage
- *  - Response interceptor → on 401, silently attempts token refresh then retries
- *    the original request once; if refresh fails, clears state and redirects to /login
- */
+// axios wrapper - handles auth token injection and silent refresh on 401
 import axios from 'axios'
 
 const BASE_URL = import.meta.env.VITE_API_URL || ''
@@ -15,7 +9,6 @@ export const api = axios.create({
   withCredentials: true,   // Send httpOnly refresh-token cookie on every request
 })
 
-// ── Request interceptor — attach access token ─────────────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) {
@@ -24,9 +17,8 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// ── Response interceptor — transparent token refresh ─────────────────────────
 let _isRefreshing = false
-let _pendingQueue = []   // [{resolve, reject}] — requests queued during refresh
+let _pendingQueue = []  // requests queued while a refresh is already in-flight
 
 function _processQueue(error, newToken = null) {
   _pendingQueue.forEach(({ resolve, reject }) =>

@@ -1,8 +1,6 @@
-"""
-Auth utilities: password hashing (bcrypt rounds=12), JWT creation/verification,
-refresh-token management, brute-force protection, and the FastAPI dependency
-that resolves the current authenticated user.
-"""
+# auth utilities - hashing, JWT, refresh tokens, brute force protection
+# originally used passlib but it crashes with bcrypt 4.x in prod (spent a day debugging this)
+# now calling bcrypt directly which is less "proper" but actually works
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Any
@@ -16,29 +14,23 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 
-# Passlib removed: passlib 1.7.4 is incompatible with bcrypt >= 4.0.
-# bcrypt is now called directly so we own every call site.
 _BCRYPT_ROUNDS = 12
-_BCRYPT_MAX_BYTES = 72
+_BCRYPT_MAX_BYTES = 72  # hard bcrypt limit, enforced strictly in bcrypt 4.x
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
+# precompute once so we can always run bcrypt even when user doesn't exist
+# (prevents timing attacks that let you enumerate valid emails)
 @lru_cache(maxsize=1)
 def _dummy_hash() -> bytes:
-    """Precompute once; used by constant_time_password_check for non-existent users."""
     return _bcrypt.hashpw(b"dummy-for-timing-safety", _bcrypt.gensalt(rounds=_BCRYPT_ROUNDS))
 
 
-# ── Passwords ────────────────────────────────────────────────────────────────
-
 def _encode_password(password: str) -> bytes:
-    """Encode to UTF-8 and enforce bcrypt's hard 72-byte limit before it ever reaches the C library."""
     encoded = password.encode("utf-8")
     if len(encoded) > _BCRYPT_MAX_BYTES:
-        raise ValueError(
-            f"Password must be at most {_BCRYPT_MAX_BYTES} bytes when UTF-8 encoded"
-        )
+        raise ValueError(f"Password too long (max {_BCRYPT_MAX_BYTES} bytes)")
     return encoded
 
 
@@ -54,7 +46,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def constant_time_password_check(plain: str, hashed: str | None) -> bool:
-    """Always runs bcrypt to prevent timing-based user enumeration."""
+    # always run bcrypt even if user doesn't exist, so login time doesn't leak whether email is valid
     try:
         encoded = _encode_password(plain)
     except ValueError:
@@ -65,8 +57,6 @@ def constant_time_password_check(plain: str, hashed: str | None) -> bool:
     result = _bcrypt.checkpw(encoded, effective_hash)
     return result and hashed is not None
 
-
-# ── JWT ──────────────────────────────────────────────────────────────────────
 
 def create_access_token(data: dict[str, Any]) -> str:
     payload = data.copy()
@@ -92,8 +82,6 @@ def decode_access_token(token: str) -> dict[str, Any]:
         )
 
 
-# ── Refresh tokens ───────────────────────────────────────────────────────────
-
 def create_and_store_refresh_token(
     user_id: int,
     db: Session,
@@ -116,7 +104,6 @@ def create_and_store_refresh_token(
 
 
 def verify_and_rotate_refresh_token(token: str, db: Session):
-    """Verify refresh token, revoke it (rotation), return (user, new_access_token)."""
     from app.auth.models import User
     from app.auth.refresh_models import RefreshToken, hash_token
 
@@ -168,8 +155,6 @@ def revoke_all_user_refresh_tokens(user_id: int, db: Session) -> None:
     db.commit()
 
 
-# ── Brute-force protection ───────────────────────────────────────────────────
-
 def check_account_lockout(user) -> None:
     if user.locked_until and user.locked_until > datetime.now(timezone.utc):
         remaining = max(1, int((user.locked_until - datetime.now(timezone.utc)).total_seconds() // 60))
@@ -197,8 +182,6 @@ def record_successful_login(user, db: Session, ip: str) -> None:
     db.commit()
 
 
-# ── Request helpers ──────────────────────────────────────────────────────────
-
 def get_client_ip(request: Request) -> str:
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
@@ -208,8 +191,6 @@ def get_client_ip(request: Request) -> str:
         return x_real_ip.strip()
     return request.client.host if request.client else "unknown"
 
-
-# ── FastAPI dependency ───────────────────────────────────────────────────────
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),

@@ -1,3 +1,5 @@
+# TODO: swap SQLite for postgres before going to prod for real
+# sqlite is fine for single instance but can't handle concurrent writes
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from app.config import settings

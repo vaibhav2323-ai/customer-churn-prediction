@@ -1,8 +1,4 @@
-"""
-Refresh-token storage.
-Only a SHA-256 hash of the token is persisted — the plaintext is returned
-once to the client via httpOnly cookie and never stored.
-"""
+# store only a SHA-256 hash of the token, never the plaintext
 import hashlib
 import secrets
 from datetime import datetime, timezone
@@ -31,7 +27,6 @@ class RefreshToken(Base):
 
 
 def generate_refresh_token() -> tuple[str, str]:
-    """Return (plaintext_token, sha256_hash_to_store)."""
     token = secrets.token_urlsafe(64)
     return token, _hash(token)
 

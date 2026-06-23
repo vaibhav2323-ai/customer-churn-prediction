@@ -1,7 +1,6 @@
-"""
-Inference helpers: load model artefacts, preprocess raw customer dicts,
-produce churn probability + SHAP explanation.
-"""
+# loads the saved model + explainer and runs predictions
+# also handles the SHAP output - took a while to figure out the shape differences
+# between XGBoost and sklearn models (XGB returns 2D array, sklearn returns list of arrays)
 import json
 from pathlib import Path
 from typing import Any
@@ -120,9 +119,10 @@ def predict_single(data: dict) -> dict:
     probability = float(_model.predict_proba(X_input)[0][1])
     risk = _risk_level(probability)
 
-    # SHAP
+    # SHAP - this part was confusing, XGBoost returns a 2D array directly
+    # but sklearn models return a list of arrays (one per class)
+    # TODO: double check this still works if we ever switch models
     sv_raw = _explainer.shap_values(X_input)
-    # Handle both list-of-arrays (some classifiers) and plain array (XGBoost)
     if isinstance(sv_raw, list):
         sv = np.array(sv_raw[1][0])
     else:

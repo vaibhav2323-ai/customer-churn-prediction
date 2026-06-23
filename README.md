@@ -1,64 +1,71 @@
-# ChurnGuard — Customer Churn Prediction Platform
+# Customer Churn Prediction
 
-AI-powered customer churn prediction with XGBoost, SHAP explanations, and a full-stack web interface.
+A full-stack ML web app I built as my final year engineering project. You give it a telecom customer's details and it tells you how likely they are to cancel their subscription, plus *why* (using SHAP values).
 
-## Features
+**Live demo:** https://customer-churn-prediction-dun.vercel.app  
+Login: `demo@churnprediction.ai` / `Demo1234!`
 
-- **ML Model** — XGBoost trained on synthetic Telco churn data; SHAP explainability; ROC-AUC comparison with Logistic Regression
-- **Backend** — FastAPI + SQLite; JWT auth; single & batch prediction; dashboard analytics; rate limiting
-- **Frontend** — React + Tailwind CSS; live charts (Recharts); SHAP waterfall; CSV batch upload/download
-- **DevOps** — Docker Compose; GitHub Actions CI/CD
+Backend: https://customer-churn-prediction-w9zi.onrender.com
 
 ---
 
-## Quick Start (Docker Compose)
+## Why I built this
 
-```bash
-# 1. Clone the repo
-git clone <your-repo-url>
-cd churnguard
+I'd done the Kaggle Telco churn dataset in a notebook before but I wanted to actually *deploy* something — a real app that other people could use, not just a `.ipynb` file that only works on my laptop.
 
-# 2. Create environment file
-cp .env.example .env
-# Edit .env and set a strong SECRET_KEY
+Goals I set for myself:
+- Serve an ML model through a proper REST API
+- Build a frontend that doesn't look terrible
+- Figure out JWT auth (I didn't really understand it before this)
+- Get it running on the cloud with CI/CD
 
-# 3. Start all services
-docker compose up --build
-
-# Frontend → http://localhost:3000
-# Backend API → http://localhost:8000
-# API Docs → http://localhost:8000/docs
-```
-
-**Demo login:** `demo@churnprediction.ai` / `Demo1234!`
+It took way longer than I thought. Mostly because of CORS. More on that below.
 
 ---
 
-## Local Development
+## What it does
+
+- Enter customer info → get churn probability + SHAP explanation of the top factors
+- Upload a CSV → batch predict for hundreds of customers at once
+- Dashboard with charts of your prediction history over time
+- Accounts system with login/logout (JWT + httpOnly refresh cookie)
+
+---
+
+## Tech stack
+
+- **ML:** XGBoost vs Logistic Regression — trains both, picks whichever has better ROC-AUC
+- **Explainability:** SHAP TreeExplainer (learned about this from the original paper — really cool)
+- **Backend:** FastAPI + SQLite + SQLAlchemy
+- **Frontend:** React 18 + Vite + Tailwind CSS + Recharts
+- **Auth:** JWT access tokens (15 min) + httpOnly refresh cookie (7 days, rotated on use)
+- **Infra:** Docker, GitHub Actions CI/CD, Render (backend), Vercel (frontend)
+
+---
+
+## Running it locally
 
 ### Backend
 
 ```bash
 cd backend
+
 python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 
 pip install -r requirements.txt
 
-# Train the ML model (first time only)
+# train the model first — creates a models/ folder with .pkl files
 python -m ml.train
 
-# Seed demo data
+# seed the demo user + some sample predictions
 python -m scripts.seed
 
-# Start the API server
+# start the API
 uvicorn app.main:app --reload --port 8000
 ```
 
-API docs: http://localhost:8000/docs
+API docs (Swagger UI): http://localhost:8000/docs
 
 ### Frontend
 
@@ -68,147 +75,115 @@ npm install
 npm run dev
 ```
 
-App: http://localhost:5173
-
-Vite's dev proxy forwards all API calls to `http://localhost:8000`.
+Opens at http://localhost:5173. Vite proxies `/auth`, `/predictions`, etc. to port 8000 automatically so you don't need to touch CORS in dev.
 
 ---
 
-## Project Structure
+## Project layout
 
 ```
 project/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # FastAPI app, CORS, rate limiter
-│   │   ├── config.py            # Pydantic settings
-│   │   ├── database.py          # SQLAlchemy engine + session
-│   │   ├── auth/                # JWT register / login
-│   │   ├── predictions/         # /predict, /batch-predict, /history
-│   │   ├── dashboard/           # /dashboard/stats
-│   │   └── customers/           # /customers (latest prediction per ID)
+│   │   ├── auth/           # register, login, JWT, refresh tokens, brute-force lockout
+│   │   ├── predictions/    # /predict, /batch-predict, /history
+│   │   ├── dashboard/      # aggregate stats for the charts
+│   │   ├── customers/      # customer list (latest prediction per ID)
+│   │   ├── config.py       # env var settings (Pydantic BaseSettings)
+│   │   └── main.py         # app entry point, CORS, middleware
 │   ├── ml/
-│   │   ├── train.py             # Generate data, train XGBoost + LR, save artefacts
-│   │   ├── predict.py           # Load model, preprocess, infer, SHAP
-│   │   └── models/              # Saved model artefacts (created by train.py)
-│   ├── scripts/
-│   │   └── seed.py              # Populate demo user + 100 predictions
-│   ├── requirements.txt
-│   └── Dockerfile
+│   │   ├── train.py        # generate data, train models, save artifacts
+│   │   └── predict.py      # load model, preprocess input, run inference + SHAP
+│   └── scripts/seed.py     # creates demo user + 100 sample predictions
 ├── frontend/
-│   ├── src/
-│   │   ├── pages/               # Dashboard, Predict, BatchUpload, History, Customers
-│   │   ├── components/          # Navbar, RiskBadge, LoadingSpinner, ProtectedRoute
-│   │   ├── context/AuthContext  # JWT auth state
-│   │   └── utils/api.js         # Axios instance with auth interceptors
-│   ├── package.json
-│   └── Dockerfile
+│   └── src/
+│       ├── pages/          # Dashboard, Predict, BatchUpload, History, Customers
+│       ├── context/        # AuthContext (JWT state)
+│       └── utils/api.js    # axios with automatic token refresh on 401
 ├── docker-compose.yml
-├── .env.example
-└── .github/workflows/ci-cd.yml
+├── render.yaml             # Render deployment config
+└── .github/workflows/      # CI: gitleaks, bandit, pip-audit, npm audit, pytest, Trivy
 ```
 
 ---
 
-## API Reference
+## Struggles I ran into
+
+**CORS was genuinely horrible.** Frontend on Vercel, backend on Render — browser kept blocking requests with zero useful error messages. Turns out for cross-origin requests with credentials you need ALL of:
+1. Exact origin in `allow_origins` (wildcards break with `allow_credentials=True`)
+2. `SameSite=None` on the cookie (default `Lax` silently blocks cross-origin cookie sends)
+3. `Secure=True` on the cookie (browsers refuse `SameSite=None` without this)
+4. `withCredentials: true` in axios
+
+Miss any one of these and it silently fails. Took me way too long.
+
+**passlib crashed in production.** I started with passlib for bcrypt (it's in every FastAPI tutorial) but it's unmaintained and crashes with bcrypt 4.x — threw `ValueError: password cannot be longer than 72 bytes` even for 9-character passwords. Spent a whole day debugging before I just ripped it out and called bcrypt directly.
+
+**Docker volume permissions.** Running as a non-root user inside the container is good practice, but then the volume mount is owned by root and the app can't write to it. Fix is an entrypoint script that runs as root to `chown` the volume then drops to uid 1001 with `gosu`. Annoying but it works.
+
+---
+
+## What I learned
+
+- **SHAP values** actually make sense now. The TreeExplainer is really fast for tree-based models and the outputs are genuinely useful for understanding predictions — not just a gimmick
+- **JWT refresh token rotation** is more complex than tutorials make it seem. I implemented the full flow: short-lived access token in memory, long-lived refresh token in httpOnly cookie, rotate on every use, revoke on logout
+- **Timing attacks** are real and preventing user enumeration through login response times is an actual thing you have to think about
+- **CI/CD** with GitHub Actions is actually not that bad once you get past the YAML syntax. I have secret scanning, Python SAST, dependency CVE checks, and Docker image scanning all running automatically
+- Deploying a real app is like 80% config/infra problems and 20% actual code
+
+---
+
+## API endpoints
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/auth/register` | — | Create account |
-| POST | `/auth/login` | — | Get JWT token |
-| GET | `/auth/me` | JWT | Current user |
-| POST | `/predictions/predict` | JWT | Single churn prediction + SHAP |
-| POST | `/predictions/batch-predict` | JWT | CSV upload, up to 1,000 rows |
+| POST | `/auth/login` | — | Login, returns JWT |
+| POST | `/auth/refresh` | cookie | Refresh access token |
+| POST | `/predictions/predict` | JWT | Single prediction + SHAP |
+| POST | `/predictions/batch-predict` | JWT | CSV upload, up to 1000 rows |
 | GET | `/predictions/history` | JWT | Paginated prediction history |
 | GET | `/dashboard/stats` | JWT | Aggregate stats + monthly trend |
-| GET | `/customers` | JWT | Latest prediction per customer |
-| GET | `/health` | — | Model health check |
+| GET | `/customers` | JWT | Latest prediction per customer ID |
+| GET | `/health` | — | Health check |
 
 ---
 
-## ML Model Details
+## Model performance
+
+Trained on 7,043 synthetic samples (same structure as Kaggle Telco Churn dataset):
 
 | Metric | Value |
 |--------|-------|
-| Algorithm | XGBoost (vs Logistic Regression, best wins) |
-| Dataset | Synthetic Telco Churn (7,043 samples, 19 features) |
+| Algorithm | XGBoost (consistently beats LR on this dataset) |
 | ROC-AUC | ~0.87 |
-| Explainability | SHAP TreeExplainer |
+| Features | 19 customer attributes |
 
-**Risk tiers:**
-- 🔴 **High** — probability ≥ 70%
-- 🟡 **Medium** — 40% ≤ probability < 70%
-- 🟢 **Low** — probability < 40%
+Risk tiers: High ≥ 70% · Medium 40–70% · Low < 40%
 
 ---
 
-## Environment Variables
+## Deployment notes
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SECRET_KEY` | *required* | JWT signing secret (≥32 chars) |
-| `ALGORITHM` | `HS256` | JWT algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Token TTL |
-| `DATABASE_URL` | `sqlite:///./churn.db` | SQLAlchemy DSN |
-| `CORS_ORIGINS` | `http://localhost:3000,...` | Comma-separated allowed origins |
-| `VITE_API_URL` | *(empty = proxy)* | Frontend API base URL |
+Backend is on Render free tier — it spins down after 15 min of inactivity so the first request after a while will be slow (30–60s cold start). That's a Render free plan thing, not a bug.
 
----
-
-## Deployment
-
-### Production checklist
-
-- [ ] Set a strong `SECRET_KEY` in `.env` (`openssl rand -hex 32`)
-- [ ] Update `CORS_ORIGINS` to your actual frontend domain
-- [ ] Replace SQLite with PostgreSQL for multi-instance deployments
-- [ ] Point `VITE_API_URL` to your production API URL before building frontend
-- [ ] Configure deploy secrets in GitHub Actions (`DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`)
-
-### Deploy to any VPS
-
-```bash
-# On the server
-mkdir /opt/churnguard && cd /opt/churnguard
-# Copy docker-compose.yml and .env
-docker compose up -d
+For your own deployment, set these env vars on Render:
+```
+SECRET_KEY=<openssl rand -hex 32>
+REFRESH_SECRET_KEY=<different key>
+CORS_ORIGINS=https://your-frontend.vercel.app
+COOKIE_SECURE=true
+COOKIE_SAMESITE=none
+ENVIRONMENT=production
 ```
 
-### Deploy backend to Railway / Render
-
-Set the start command to:
+And on Vercel:
 ```
-python -m ml.train && python -m scripts.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+VITE_API_URL=https://your-backend.onrender.com
 ```
-
-### Deploy frontend to Vercel / Netlify
-
-```bash
-cd frontend
-npm run build
-# Upload dist/ to your static host
-# Set VITE_API_URL to your backend URL
-```
-
----
-
-## CSV Batch Upload Format
-
-Required columns (case-sensitive):
-
-```
-gender, senior_citizen, partner, dependents, tenure,
-phone_service, multiple_lines, internet_service,
-online_security, online_backup, device_protection,
-tech_support, streaming_tv, streaming_movies,
-contract, paperless_billing, payment_method,
-monthly_charges, total_charges
-```
-
-Download the template from the **Batch Upload** page in the app.
 
 ---
 
 ## License
 
-MIT
+MIT. Use it however, just don't blame me if it breaks :)

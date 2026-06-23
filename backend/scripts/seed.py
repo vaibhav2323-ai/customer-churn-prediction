@@ -1,9 +1,3 @@
-"""
-Seed the database with a demo user and realistic sample predictions
-spanning the past 6 months.
-
-Usage: python -m scripts.seed
-"""
 import json
 import random
 import sys
@@ -106,13 +100,6 @@ def random_customer() -> dict:
 
 
 def ensure_demo_user() -> None:
-    """Create the demo user on startup if it doesn't already exist.
-
-    Called from FastAPI's lifespan so the demo account is always present
-    regardless of whether the Docker entrypoint seed ran (e.g. on Render's
-    native Python runtime where docker-entrypoint.sh never executes).
-    Does NOT touch predictions — safe to call on every restart.
-    """
     create_tables()
     db = SessionLocal()
     try:

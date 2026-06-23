@@ -6,7 +6,6 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 def _no_html(v: str) -> str:
-    """Strip angle-bracket tags to block stored-XSS in free-text fields."""
     if re.search(r"[<>]", v):
         raise ValueError("HTML tags are not allowed")
     return v.strip()

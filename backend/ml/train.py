@@ -1,7 +1,5 @@
-"""
-Train XGBoost and Logistic Regression on synthetic Telco Customer Churn data.
-Selects the best model by ROC-AUC and saves it with SHAP explainer.
-"""
+# trains XGBoost and LR on synthetic telco data, picks the better one by ROC-AUC
+# TODO: try with the real IBM Telco dataset from Kaggle - synthetic might be too clean
 import json
 import sys
 from pathlib import Path
@@ -114,6 +112,7 @@ def generate_synthetic_data(n_samples: int = 7043) -> pd.DataFrame:
         tenure * monthly_charges + rng.normal(0, 50, n_samples), 0, None
     ).round(2)
 
+    # hand-tuned churn score weights based on what I saw in the kaggle dataset EDA
     # Logistic churn score
     score = np.zeros(n_samples)
     score += np.where(contract == "Month-to-month", 2.0, 0.0)
@@ -259,6 +258,8 @@ def train_models() -> None:
         best_prob = xgb_prob
         model_type = "xgboost"
         needs_scaling = False
+        # TreeExplainer is way faster than KernelExplainer for tree models
+        # figured this out from the SHAP docs: https://shap.readthedocs.io/en/latest/
         explainer = shap.TreeExplainer(xgb_model)
     else:
         print(f"\n✓ Logistic Regression selected (AUC {lr_auc:.4f} > {xgb_auc:.4f})")
@@ -302,7 +303,7 @@ def train_models() -> None:
     with open(MODELS_DIR / "metadata.json", "w") as f:
         json.dump(metadata, f, indent=2)
 
-    print(f"\nAll artefacts saved to {MODELS_DIR}")
+    print(f"\nartifacts saved to {MODELS_DIR}")
 
 
 if __name__ == "__main__":
