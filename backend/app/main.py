@@ -9,6 +9,7 @@ Security layers applied here:
 5. OpenAPI docs disabled in production
 """
 import logging
+import logging.config
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
@@ -21,16 +22,53 @@ from app.config import settings
 from app.database import create_tables
 from app.limiter import limiter
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_tables()
+    logger.info("[STARTUP] DB tables ready")
+
     from ml.predict import load_model
     load_model()
+    logger.info("[STARTUP] ML model loaded")
+
+    # ── CORS diagnostics ──────────────────────────────────────────────────────
+    logger.info("[STARTUP] CORS allowed origins: %s", settings.cors_origins_list)
+    logger.info(
+        "[STARTUP] Cookie settings: secure=%s samesite=%s",
+        settings.COOKIE_SECURE, settings.COOKIE_SAMESITE,
+    )
+    logger.info("[STARTUP] Environment: %s", settings.ENVIRONMENT)
+
+    # ── Demo user ─────────────────────────────────────────────────────────────
     from scripts.seed import ensure_demo_user
-    ensure_demo_user()
+    try:
+        ensure_demo_user()
+    except Exception as exc:
+        logger.error("[STARTUP] ensure_demo_user failed: %s", exc, exc_info=True)
+
+    # ── Verify demo user is really in DB ─────────────────────────────────────
+    try:
+        from app.database import SessionLocal
+        from app.auth.models import User
+        with SessionLocal() as db:
+            demo = db.query(User).filter(User.email == "demo@churnprediction.ai").first()
+            if demo:
+                logger.info(
+                    "[STARTUP] Demo user confirmed in DB: id=%s email=%s active=%s",
+                    demo.id, demo.email, demo.is_active,
+                )
+            else:
+                logger.error("[STARTUP] Demo user NOT found in DB after ensure_demo_user()")
+    except Exception as exc:
+        logger.error("[STARTUP] DB demo-user check failed: %s", exc, exc_info=True)
+
     yield
 
 
@@ -63,6 +101,25 @@ app.add_middleware(
     expose_headers=["X-RateLimit-Limit", "X-RateLimit-Remaining", "Retry-After"],
     max_age=600,
 )
+
+
+# ── CORS + request diagnostics middleware ────────────────────────────────────
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    origin = request.headers.get("origin")
+    if origin:
+        logger.info(
+            "[REQUEST] %s %s  origin=%s",
+            request.method, request.url.path, origin,
+        )
+    response = await call_next(request)
+    if origin:
+        acao = response.headers.get("access-control-allow-origin", "<not set>")
+        logger.info(
+            "[CORS] Access-Control-Allow-Origin: %s  (request origin: %s)",
+            acao, origin,
+        )
+    return response
 
 
 # ── Security headers middleware ───────────────────────────────────────────────
