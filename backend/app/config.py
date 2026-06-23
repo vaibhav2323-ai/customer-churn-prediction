@@ -20,7 +20,14 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite:///./churn.db"
 
     # ── CORS — no wildcard allowed in production ────────────────────────────
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    # Vercel production URL is included as a default so the deployment works
+    # even if the CORS_ORIGINS env var is not explicitly set on Render.
+    # Override via env var to add/remove origins for your own deployment.
+    CORS_ORIGINS: str = (
+        "http://localhost:3000,"
+        "http://localhost:5173,"
+        "https://customer-churn-prediction-dun.vercel.app"
+    )
 
     # ── Brute-force protection ──────────────────────────────────────────────
     LOGIN_MAX_ATTEMPTS: int = 5

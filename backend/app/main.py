@@ -29,6 +29,8 @@ async def lifespan(app: FastAPI):
     create_tables()
     from ml.predict import load_model
     load_model()
+    from scripts.seed import ensure_demo_user
+    ensure_demo_user()
     yield
 
 

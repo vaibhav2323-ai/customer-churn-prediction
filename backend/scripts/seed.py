@@ -105,6 +105,31 @@ def random_customer() -> dict:
     }
 
 
+def ensure_demo_user() -> None:
+    """Create the demo user on startup if it doesn't already exist.
+
+    Called from FastAPI's lifespan so the demo account is always present
+    regardless of whether the Docker entrypoint seed ran (e.g. on Render's
+    native Python runtime where docker-entrypoint.sh never executes).
+    Does NOT touch predictions — safe to call on every restart.
+    """
+    create_tables()
+    db = SessionLocal()
+    try:
+        if not db.query(User).filter(User.email == DEMO_EMAIL).first():
+            db.add(User(
+                email=DEMO_EMAIL,
+                hashed_password=hash_password(DEMO_PASSWORD),
+                full_name=DEMO_NAME,
+            ))
+            db.commit()
+            print(f"[startup] Demo user created → {DEMO_EMAIL} / {DEMO_PASSWORD}")
+        else:
+            print(f"[startup] Demo user already exists → {DEMO_EMAIL}")
+    finally:
+        db.close()
+
+
 def main():
     create_tables()
     load_model()
