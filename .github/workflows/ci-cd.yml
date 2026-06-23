@@ -52,13 +52,7 @@ jobs:
         run: pip install -r requirements.txt --quiet
 
       - name: bandit — Python SAST
-        run: bandit -r . --exit-zero --format json -o bandit-report.json
-
-      - name: Upload bandit report
-        uses: actions/upload-artifact@v4
-        with:
-          name: bandit-report
-          path: backend/bandit-report.json
+        run: bandit -r . --exit-zero -f txt
 
       - name: pip-audit — dependency vulnerability check
         run: pip-audit -r requirements.txt --exit-zero
